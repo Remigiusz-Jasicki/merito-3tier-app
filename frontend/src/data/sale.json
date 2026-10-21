@@ -1,0 +1,10 @@
+[
+  { "id": 1, "nazwa": "A101", "budynek": "A", "pietro": 1, "pojemnosc": 30, "wyposazenie": ["rzutnik", "tablica"], "dostepna": true },
+  { "id": 2, "nazwa": "A102", "budynek": "A", "pietro": 1, "pojemnosc": 24, "wyposazenie": ["komputery", "rzutnik"], "dostepna": false },
+  { "id": 3, "nazwa": "A205", "budynek": "A", "pietro": 2, "pojemnosc": 120, "wyposazenie": ["rzutnik", "nagłośnienie"], "dostepna": true },
+  { "id": 4, "nazwa": "B014", "budynek": "B", "pietro": 0, "pojemnosc": 16, "wyposazenie": ["tablica"], "dostepna": true },
+  { "id": 5, "nazwa": "B110", "budynek": "B", "pietro": 1, "pojemnosc": 40, "wyposazenie": ["komputery", "rzutnik", "tablica"], "dostepna": false },
+  { "id": 6, "nazwa": "B210", "budynek": "B", "pietro": 2, "pojemnosc": 60, "wyposazenie": ["rzutnik"], "dostepna": true },
+  { "id": 7, "nazwa": "C003", "budynek": "C", "pietro": 0, "pojemnosc": 12, "wyposazenie": ["tablica", "ekran"], "dostepna": true },
+  { "id": 8, "nazwa": "C120", "budynek": "C", "pietro": 1, "pojemnosc": 200, "wyposazenie": ["rzutnik", "nagłośnienie", "ekran"], "dostepna": false }
+]

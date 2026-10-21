@@ -111,11 +111,12 @@ Instrukcja wdrożenia krok po kroku znajduje się w folderze [`docs/`](docs/).
 
 ### Zespół
 
-| Osoba        | Rola                    |
-|--------------|-------------------------|
-| _Imię Nazwisko_ | _np. front-end_      |
-| _Imię Nazwisko_ | _np. back-end_       |
-| _Imię Nazwisko_ | _np. baza danych, dokumentacja_ |
+| Osoba             | Rola                    |
+|-------------------|-------------------------|
+| Jasicki Remigiusz |     PM/DevOps           |
+| Bowszys Bartosz   |     Frontend            |
+| Sontowski Filip   |     Backend             |
+| Hanc Oliwier      |     DBA                 |
 
 ---
 
