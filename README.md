@@ -1,123 +1,162 @@
-# merito-3tier-app
 # SalaGo
 
-> Rezerwuj sale błyskawicznie.
+SalaGo to aplikacja edukacyjna do przeglądania i zarządzania salami uczelnianymi. W aktualnej wersji użytkownik może wyświetlać listę sal, filtrować ją według dostępności i minimalnej pojemności oraz dodawać, edytować i usuwać sale. Aplikacja nie obsługuje jeszcze rezerwacji terminów, logowania ani powiadomień.
 
-SalaGo to aplikacja webowa do szybkiej rezerwacji sal na uczelni dla studentów, wykładowców i kół naukowych. Na planie budynku widać, które sale są wolne, a filtry pozwalają wybrać salę o odpowiedniej pojemności i wyposażeniu. Rezerwacja zajmuje kilka sekund, a aplikacja sama pilnuje terminów, wysyła przypomnienia i nie dopuszcza do podwójnych rezerwacji.
+## Aktualny stan projektu
 
-Ten plik to **główny przewodnik po repozytorium `merito-3tier-app`**. Szczegółowa dokumentacja znajduje się w folderze [`docs/`](docs/).
-
----
-
-## Spis treści
-
-1. [Funkcje](#funkcje)
-2. [Technologie](#technologie)
-3. [Architektura](#architektura)
-4. [Struktura repozytorium](#struktura-repozytorium)
-5. [Konfiguracja](#konfiguracja)
-6. [Wdrożenie w Azure](#wdrożenie-w-azure)
-7. [Praca w zespole](#praca-w-zespole)
-
----
-
-## Funkcje
-
-- Podgląd dostępności sal w czasie rzeczywistym
-- Filtrowanie sal po pojemności i wyposażeniu (rzutnik, komputery, tablica)
-- Rezerwacja i anulowanie rezerwacji jednym kliknięciem
-- Blokada nakładających się rezerwacji
-- Przypomnienia o zbliżających się rezerwacjach
-- Logowanie kontem uczelnianym (Microsoft 365)
-- Panel administratora: obłożenie sal i zatwierdzanie wniosków
-
-## Technologie
-
-| Warstwa      | Technologia          | Usługa w Azure                   |
-|--------------|----------------------|----------------------------------|
-| Front-end    | React                | Azure Static Web Apps            |
-| Back-end     | Node.js (Express)    | Azure App Service                |
-| Baza danych  | PostgreSQL           | Azure Database for PostgreSQL    |
-| Logowanie    | Microsoft Entra ID   | Microsoft Entra ID               |
+- Frontend: React i Vite.
+- Backend: Node.js i Express, REST API.
+- Baza danych: lokalna SQLite (`backend/salago.db`).
+- Integracja: HTTP JSON pomiędzy frontendem a backendem, zapytania SQL do SQLite.
+- Środowisko: lokalne. Integracja z Azure SQL Database i automatyczne wdrożenie nie zostały jeszcze wykonane.
 
 ## Architektura
 
-Aplikacja działa w modelu **3-tier**: warstwa prezentacji, warstwa logiki i warstwa danych.
-
-![Schemat architektury SalaGo](docs/architektura.png)
-
-Szczegółowy opis architektury znajduje się w folderze [`docs/`](docs/).
+```mermaid
+flowchart TD
+    A["Użytkownik w przeglądarce"] --> B["Frontend React i Vite"]
+    B -->|"REST API HTTP"| C["Backend Express"]
+    C -->|"Zapytania SQL"| D[("Lokalna baza SQLite")]
+    D --> C
+    C -->|"JSON"| B
+```
 
 ## Struktura repozytorium
 
+| Ścieżka | Znaczenie |
+|---|---|
+| `frontend/` | Interfejs React, formularz i lista sal |
+| `frontend/src/services/api.js` | Wywołania REST API |
+| `backend/server.js` | Endpointy CRUD i walidacja po stronie serwera |
+| `backend/database.js` | Utworzenie bazy i tabeli SQLite, dane początkowe |
+| `backend/salago.db` | Lokalny plik danych, ignorowany przez Git |
+| `config/`, `docs/` | Katalogi pomocnicze projektu |
+
+## Uruchomienie lokalne
+
+Wymagane są Node.js 22, npm i dwa terminale. Polecenia `npm.cmd` są przeznaczone dla PowerShell w Windows; w innych powłokach można użyć `npm`.
+
+### Backend
+
+Otwórz terminal w folderze `backend` i uruchom:
+
+```powershell
+npm.cmd install
+node server.js
 ```
-merito-3tier-app/
-├── backend/      # API Node.js + Express (warstwa logiki)
-├── config/       # Konfiguracja i wzory zmiennych środowiskowych
-├── docs/         # Dokumentacja projektu (architektura, wdrożenie)
-├── frontend/     # Aplikacja React (warstwa prezentacji)
-└── README.md     # Ten plik – główny przewodnik po repozytorium
+
+API działa domyślnie na `http://localhost:3000`. Przy pierwszym uruchomieniu `backend/database.js` tworzy `salago.db`, tabelę `sale` i osiem przykładowych rekordów. Kolejne uruchomienia zachowują zapisane dane.
+
+### Frontend
+
+Otwórz drugi terminal w folderze `frontend` i uruchom:
+
+```powershell
+npm.cmd install
 ```
 
-| Folder | Warstwa / rola | Zawartość |
-|---|---|---|
-| [`frontend/`](frontend/) | Warstwa prezentacji | Interfejs użytkownika w React |
-| [`backend/`](backend/) | Warstwa logiki | REST API w Node.js (Express), obsługa rezerwacji i logowania |
-| [`config/`](config/) | Konfiguracja | Wzory plików `.env` – bez prawdziwych haseł i adresów |
-| [`docs/`](docs/) | Dokumentacja | Opis architektury, schemat systemu, instrukcja wdrożenia |
+Utwórz lokalny plik `frontend/.env.local`:
 
-Warstwa danych (PostgreSQL) działa jako usługa w Azure, dlatego nie ma osobnego folderu. Połączenie z nią back-end pobiera ze zmiennej środowiskowej `DATABASE_URL`.
+```env
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_USE_MOCK=false
+```
 
-## Konfiguracja
+Następnie uruchom:
 
-W kodzie **nie ma na sztywno wpisanych adresów URL, haseł ani kluczy**. Wszystkie takie wartości trafiają do zmiennych środowiskowych. Prawdziwe pliki `.env` nigdy nie trafiają do repozytorium. W repozytorium są tylko wzory w folderze [`config/`](config/).
+```powershell
+npm.cmd run dev
+```
 
-### Back-end (`backend/.env`)
+Otwórz adres podany przez Vite, zwykle `http://localhost:5173`. Backend musi być uruchomiony równolegle. Zmienne `VITE_*` są widoczne po stronie przeglądarki, więc nie należy w nich umieszczać haseł.
 
-| Zmienna             | Opis                                         |
-|---------------------|----------------------------------------------|
-| `PORT`              | Port, na którym działa API                   |
-| `DATABASE_URL`      | Connection string do bazy PostgreSQL         |
-| `ENTRA_TENANT_ID`   | Identyfikator tenanta Microsoft Entra ID     |
-| `ENTRA_CLIENT_ID`   | Identyfikator aplikacji w Entra ID           |
-| `CORS_ORIGIN`       | Adres front-endu, który może wywoływać API   |
+### Budowanie frontendu
 
-### Front-end (`frontend/.env`)
+```powershell
+cd frontend
+npm.cmd run build
+```
 
-| Zmienna               | Opis                                   |
-|-----------------------|----------------------------------------|
-| `VITE_API_URL`        | Adres API back-endu                    |
-| `VITE_ENTRA_CLIENT_ID`| Identyfikator aplikacji w Entra ID     |
-| `VITE_ENTRA_TENANT_ID`| Identyfikator tenanta Microsoft Entra ID |
+Wynikiem jest folder `frontend/dist/`.
 
-W Azure te same zmienne ustawia się w konfiguracji usług (App Service → *Environment variables*, Static Web Apps → *Environment variables*), a nie w plikach.
+## REST API
 
-## Wdrożenie w Azure
+Adres bazowy: `http://localhost:3000/api`.
 
-| Komponent   | Usługa                          |
-|-------------|---------------------------------|
-| `frontend/` | Azure Static Web Apps           |
-| `backend/`  | Azure App Service (Node.js)     |
-| Baza danych | Azure Database for PostgreSQL – Flexible Server |
-| Logowanie   | Rejestracja aplikacji w Microsoft Entra ID |
+| Metoda | Endpoint | Opis | Sukces | Typowe błędy |
+|---|---|---|---|---|
+| GET | `/sale` | Pobranie listy sal | 200 | — |
+| GET | `/sale/:id` | Pobranie wskazanej sali | 200 | 404 |
+| POST | `/sale` | Utworzenie sali | 201 | 400 |
+| PUT | `/sale/:id` | Pełna aktualizacja sali | 200 | 400, 404 |
+| DELETE | `/sale/:id` | Usunięcie sali | 204 (bez treści) | 404 |
 
-Instrukcja wdrożenia krok po kroku znajduje się w folderze [`docs/`](docs/).
+Przykładowe żądanie `POST /api/sale`:
 
-## Praca w zespole
+```json
+{
+  "nazwa": "D101",
+  "budynek": "D",
+  "pietro": 1,
+  "pojemnosc": 35,
+  "wyposazenie": ["rzutnik", "tablica"],
+  "dostepna": true
+}
+```
 
-- Zadania i ich statusy prowadzimy na tablicy zadań projektu (GitHub Projects).
-- Każda zmiana trafia na osobną gałąź i do `main` przechodzi przez pull request.
-- Nazwy gałęzi: `feature/<nazwa>`, `fix/<nazwa>`, `docs/<nazwa>`.
+Przykładowa odpowiedź `201 Created` (identyfikator zależy od stanu bazy):
 
-### Zespół
+```json
+{
+  "id": 9,
+  "nazwa": "D101",
+  "budynek": "D",
+  "pietro": 1,
+  "pojemnosc": 35,
+  "wyposazenie": ["rzutnik", "tablica"],
+  "dostepna": true
+}
+```
 
-| Osoba             | Rola                    |
-|-------------------|-------------------------|
-| Jasicki Remigiusz |     PM/DevOps           |
-| Bowszys Bartosz   |     Frontend            |
-| Sontowski Filip   |     Backend             |
-| Hanc Oliwier      |     DBA                 |
+Przykładowa odpowiedź błędu walidacji `400 Bad Request`:
 
----
+```json
+{ "error": "Niepoprawna pojemność" }
+```
+
+## Baza danych i walidacja
+
+Tabela `sale` ma kolumny: `id` (klucz główny), `nazwa`, `budynek`, `pietro`, `pojemnosc`, `wyposazenie` i `dostepna`. Lista wyposażenia jest zapisywana jako JSON w kolumnie tekstowej, a dostępność jako wartość 0 lub 1. Backend konwertuje te dane do tablicy i wartości logicznej w odpowiedziach API.
+
+Frontend sprawdza wymagane pola oraz poprawność piętra i pojemności. Backend niezależnie weryfikuje przesłane dane i zwraca status 400 dla niepoprawnych żądań. Interfejs wyświetla stan ładowania, komunikaty powodzenia oraz błędy połączenia lub zapisu.
+
+## Sprawdzenie działania
+
+1. Uruchom backend i frontend.
+2. Sprawdź listę sal w interfejsie i pod adresem `http://localhost:3000/api/sale`.
+3. Dodaj nową salę, zmień jej dane i sprawdź komunikaty sukcesu.
+4. Spróbuj zapisać salę z pojemnością 0 — formularz powinien zablokować zapis.
+5. Dodaj salę i uruchom ponownie backend — rekord powinien pozostać w SQLite.
+6. Usuń testową salę i sprawdź odświeżoną listę.
+7. Zatrzymaj backend i odśwież frontend — powinien pojawić się komunikat błędu połączenia.
+8. Uruchom `npm.cmd run build` w folderze frontend.
+
+## Ograniczenia i dalsze prace
+
+- SQLite jest bazą lokalną i nie dowodzi integracji z Azure SQL Database wymaganej docelowo w projekcie chmurowym.
+- Przed wdrożeniem do Azure trzeba przygotować bazę Azure SQL, połączenie backendu z nią oraz konfigurację sieci i sekretów.
+- Obecna wersja nie realizuje rezerwacji sal, powiadomień ani logowania Microsoft 365.
+- Build frontendu został przetestowany lokalnie; automatyczny pipeline CI/CD i wdrożenie chmurowe wymagają osobnej konfiguracji.
+
+## Praca zespołowa
+
+| Osoba | Rola |
+|---|---|
+| Remigiusz Jasicki | PM / DevOps |
+| Bartosz Bowszys | Frontend |
+| Filip Sontowski | Backend |
+| Oliwier Hanc | DBA |
+
+Zmiany należy przygotowywać na osobnych gałęziach, poddawać przeglądowi w Pull Request i dopiero potem scalać do `main`.
 
 Projekt realizowany w ramach zajęć na WSB Merito Wrocław.

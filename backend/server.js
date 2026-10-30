@@ -1,28 +1,165 @@
+
 const express = require('express');
+const db = require('./database');
+
 const app = express();
 app.use(express.json());
 
-// Baza danych w pamięci (symulacja)
-let products = [{ id: 1, name: "Produkt testowy" }];
+// Pozwalamy frontendowi komunikować się z API.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-// GET: Pobranie listy (Status 200)
-app.get('/api/products', (req, res) => {
-    res.status(200).json(products);
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
 });
 
-// POST: Utworzenie nowego zasobu z walidacją (Status 201 lub 400)
-app.post('/api/products', (req, res) => {
-    const { name } = req.body;
+// Zamiana rekordu z bazy na format API.
+function przygotujSale(sala) {
+  return {
+    ...sala,
+    wyposazenie: JSON.parse(sala.wyposazenie),
+    dostepna: Boolean(sala.dostepna)
+  };
+}
 
-    // E3: Walidacja danych - sprawdzenie czy nazwa istnieje
-    if (!name || typeof name !== 'string') {
-        return res.status(400).json({ error: "Niepoprawne dane: pole 'name' jest wymagane i musi być tekstem." });
-    }
+// Walidacja danych.
+function sprawdzSale(dane) {
+  if (!dane || typeof dane !== 'object') {
+    return 'Brak danych sali';
+  }
 
-    const newProduct = { id: products.length + 1, name };
-    products.push(newProduct);
-    res.status(201).json(newProduct);
+  if (typeof dane.nazwa !== 'string' || !dane.nazwa.trim()) {
+    return 'Nazwa sali jest wymagana';
+  }
+
+  if (typeof dane.budynek !== 'string' || !dane.budynek.trim()) {
+    return 'Budynek jest wymagany';
+  }
+
+  if (!Number.isInteger(dane.pietro) || dane.pietro < 0) {
+    return 'Niepoprawne piętro';
+  }
+
+  if (!Number.isInteger(dane.pojemnosc) || dane.pojemnosc <= 0) {
+    return 'Niepoprawna pojemność';
+  }
+
+  if (!Array.isArray(dane.wyposazenie) ||
+      !dane.wyposazenie.every(x => typeof x === 'string')) {
+    return 'Niepoprawne wyposażenie';
+  }
+
+  if (typeof dane.dostepna !== 'boolean') {
+    return 'Niepoprawna dostępność';
+  }
+
+  return null;
+}
+
+// READ - wszystkie sale.
+app.get('/api/sale', (req, res) => {
+  const sale = db.prepare('SELECT * FROM sale').all();
+  res.status(200).json(sale.map(przygotujSale));
 });
 
+// READ - jedna sala.
+app.get('/api/sale/:id', (req, res) => {
+  const sala = db.prepare('SELECT * FROM sale WHERE id = ?')
+    .get(req.params.id);
+
+  if (!sala) {
+    return res.status(404).json({ error: 'Nie znaleziono sali' });
+  }
+
+  res.status(200).json(przygotujSale(sala));
+});
+
+// CREATE - dodawanie sali.
+app.post('/api/sale', (req, res) => {
+  const blad = sprawdzSale(req.body);
+
+  if (blad) {
+    return res.status(400).json({ error: blad });
+  }
+
+  const dane = req.body;
+
+  const wynik = db.prepare(`
+    INSERT INTO sale (
+      nazwa, budynek, pietro,
+      pojemnosc, wyposazenie, dostepna
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    dane.nazwa.trim(),
+    dane.budynek.trim(),
+    dane.pietro,
+    dane.pojemnosc,
+    JSON.stringify(dane.wyposazenie),
+    dane.dostepna ? 1 : 0
+  );
+
+  const nowaSala = db.prepare('SELECT * FROM sale WHERE id = ?')
+    .get(wynik.lastInsertRowid);
+
+  res.status(201).json(przygotujSale(nowaSala));
+});
+
+// UPDATE - edytowanie sali.
+app.put('/api/sale/:id', (req, res) => {
+  const blad = sprawdzSale(req.body);
+
+  if (blad) {
+    return res.status(400).json({ error: blad });
+  }
+
+  const dane = req.body;
+
+  const wynik = db.prepare(`
+    UPDATE sale
+    SET nazwa = ?, budynek = ?, pietro = ?,
+        pojemnosc = ?, wyposazenie = ?, dostepna = ?
+    WHERE id = ?
+  `).run(
+    dane.nazwa.trim(),
+    dane.budynek.trim(),
+    dane.pietro,
+    dane.pojemnosc,
+    JSON.stringify(dane.wyposazenie),
+    dane.dostepna ? 1 : 0,
+    req.params.id
+  );
+
+  if (wynik.changes === 0) {
+    return res.status(404).json({ error: 'Nie znaleziono sali' });
+  }
+
+  const sala = db.prepare('SELECT * FROM sale WHERE id = ?')
+    .get(req.params.id);
+
+  res.status(200).json(przygotujSale(sala));
+});
+
+// DELETE - usuwanie sali.
+app.delete('/api/sale/:id', (req, res) => {
+  const wynik = db.prepare('DELETE FROM sale WHERE id = ?')
+    .run(req.params.id);
+
+  if (wynik.changes === 0) {
+    return res.status(404).json({ error: 'Nie znaleziono sali' });
+  }
+
+  res.status(204).send();
+});
+
+// Uruchomienie serwera.
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Serwer działa na porcie ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`SalaGo API + SQLite działa na porcie ${PORT}`);
+});

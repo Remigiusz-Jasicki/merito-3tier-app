@@ -23,3 +23,52 @@ export async function pobierzSale() {
 }
 
 export const trybDanych = USE_MOCK ? 'dane makietowe (JSON)' : `API: ${API_BASE_URL}`;
+
+// Dodawanie nowej sali
+export async function dodajSale(dane) {
+  const odpowiedz = await fetch(`${API_BASE_URL}/sale`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(dane)
+  });
+
+  if (!odpowiedz.ok) {
+    const blad = await odpowiedz.json();
+    throw new Error(blad.error || 'Nie udało się dodać sali');
+  }
+
+  return odpowiedz.json();
+}
+
+// Edytowanie istniejącej sali
+export async function edytujSale(id, dane) {
+  const odpowiedz = await fetch(`${API_BASE_URL}/sale/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(dane)
+  });
+
+  if (!odpowiedz.ok) {
+    const blad = await odpowiedz.json();
+    throw new Error(blad.error || 'Nie udało się edytować sali');
+  }
+
+  return odpowiedz.json();
+}
+
+// Usuwanie sali
+export async function usunSale(id) {
+  const odpowiedz = await fetch(`${API_BASE_URL}/sale/${id}`, {
+    method: 'DELETE'
+  });
+
+  if (!odpowiedz.ok) {
+    throw new Error('Nie udało się usunąć sali');
+  }
+
+  return true;
+}

@@ -1,1 +1,19 @@
+# Pliki konfiguracyjne z danymi poufnymi
 .env
+.env.*
+!.env.example
+
+# Zależności
+node_modules/
+
+# Pliki wynikowe frontendu
+dist/
+
+# Lokalna baza danych
+backend/*.db
+backend/*.db-journal
+backend/*.db-wal
+backend/*.db-shm
+
+# Lokalne kopie zapasowe
+backend/*.backup.js
