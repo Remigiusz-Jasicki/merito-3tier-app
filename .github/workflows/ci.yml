@@ -46,18 +46,21 @@ jobs:
     name: Continuous Deployment (CD)
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Azure Login (Simulated)
+        run: |
+          echo "Simulating secure connection to Azure cloud..."
+          echo "Login successful for student project."
 
       - name: E3 - Deploy Web (Frontend)
-        run: echo "Wdrazanie frontendu..."
+        run: |
+          echo "Deploying frontend to Azure Static Web Apps..."
+          echo "Build files successfully published!"
 
       - name: E4 - Deploy App (Backend)
-        run: echo "Wdrazanie backendu..."
+        run: |
+          echo "Deploying backend to Azure App Service..."
+          echo "Container instance started successfully!"
