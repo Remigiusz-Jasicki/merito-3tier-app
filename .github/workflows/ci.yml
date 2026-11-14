@@ -11,35 +11,33 @@ jobs:
     name: Security & Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Secret Scanning (TruffleHog)
-        uses: trufflesecurity/trufflehog-actions@main
+      - name: Secret Scanning (Gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source /repo -v
 
-      - name: Security Scan (Trivy)
+      - name: Vulnerability Scan (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          severity: 'CRITICAL,HIGH'
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
 
   build:
     name: Build Frontend and Backend
     runs-on: ubuntu-latest
     needs: security-scan
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Build Frontend
-        run: |
-          cd frontend && npm ci && npm run build
-
+        run: cd frontend && npm ci && npm run build
       - name: Build Backend
-        run: |
-          cd backend && npm ci
+        run: cd backend && npm ci && npm test --if-present
