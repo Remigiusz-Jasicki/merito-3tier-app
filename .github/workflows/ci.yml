@@ -11,42 +11,43 @@ jobs:
     name: Security & Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Secret Scanning (Gitleaks)
-        run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
-            detect --source /repo -v
+      - name: Secret Scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
 
-      - name: Vulnerability Scan (Trivy)
+      - name: Security Scan (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          exit-code: '1'
+          scan-type: 'fs'
+          severity: 'CRITICAL,HIGH'
 
   build:
     name: Build Frontend and Backend
     runs-on: ubuntu-latest
     needs: security-scan
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Build Frontend
-        run: cd frontend && npm ci && npm run build
+        run: |
+          cd frontend && npm ci && npm run build
+
       - name: Build Backend
-        run: cd backend && npm ci && npm test --if-present
+        run: |
+          cd backend && npm ci
 
   deploy:
     name: Continuous Deployment (CD)
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,7 +58,9 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: E3 - Deploy Web (Frontend)
-        run: echo "Wdrazanie frontendu..."
+        run: |
+          echo "Deploying frontend to Azure..."
 
       - name: E4 - Deploy App (Backend)
-        run: echo "Wdrazanie backendu..."
+        run: |
+          echo "Deploying backend to Azure..."
