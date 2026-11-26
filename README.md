@@ -160,3 +160,58 @@ Frontend sprawdza wymagane pola oraz poprawność piętra i pojemności. Backend
 Zmiany należy przygotowywać na osobnych gałęziach, poddawać przeglądowi w Pull Request i dopiero potem scalać do `main`.
 
 Projekt realizowany w ramach zajęć na WSB Merito Wrocław.
+
+## Bezpieczeństwo i hardening chmury (Blok 9)
+
+Środowisko: Azure for Students, region **Sweden Central**, grupa zasobów `rg-salago`, sieć `vnet-salago` (10.0.0.0/16).
+Adres aplikacji: https://salago-26465.swedencentral.cloudapp.azure.com
+
+### Architektura sieci (3-tier)
+
+| Warstwa | Podsieć | Maszyna | Prywatny IP | Publiczny IP | NSG |
+|---|---|---|---|---|---|
+| Web (Caddy: HTTPS, reverse proxy, frontend React) | `snet-web` 10.0.1.0/24 | `vm-web` | 10.0.1.4 | tak (tylko 80/443) | `nsg-web` |
+| App (backend Express, port 3000) | `snet-app` 10.0.2.0/24 | `vm-app` | 10.0.2.4 | **brak** | `nsg-app` |
+| Data (PostgreSQL, port 5432) | `snet-db` 10.0.3.0/24 | `vm-db` | 10.0.3.4 | **brak** | `nsg-db` |
+
+NSG są przypisane do podsieci. Maszyny nie mają własnych NSG na kartach sieciowych, a do zarządzania nimi używamy **Azure Run Command** (bez otwierania portu 22).
+
+### Reguły zaporowe – Inbound
+
+| NSG | Priorytet | Nazwa | Port | Protokół | Źródło | Akcja |
+|---|---|---|---|---|---|---|
+| nsg-web | 100 | Allow-HTTP-HTTPS-Internet | 80, 443 | TCP | Internet | Allow |
+| nsg-web | 4000 | Deny-All-Other-Inbound | * | * | * | Deny |
+| nsg-app | 100 | Allow-App3000-from-WebSubnet | 3000 | TCP | 10.0.1.0/24 (warstwa Web) | Allow |
+| nsg-app | 4000 | Deny-All-Other-Inbound | * | * | * | Deny |
+| nsg-db | 100 | Allow-Postgres5432-from-AppSubnet | 5432 | TCP | 10.0.2.0/24 (warstwa App) | Allow |
+| nsg-db | 4000 | Deny-All-Other-Inbound | * | * | * | Deny |
+
+Reguła `Deny-All-Other-Inbound` (priorytet 4000) jest sprawdzana przed domyślną regułą Azure `AllowVnetInBound` (65000). Dzięki temu nawet ruch z innych podsieci tej samej sieci VNet jest blokowany, jeśli nie pasuje do jawnej reguły Allow (least privilege).
+
+### Reguły zaporowe – Outbound
+
+| NSG | Reguła | Cel | Akcja | Uzasadnienie |
+|---|---|---|---|---|
+| wszystkie | AllowVnetOutBound (domyślna) | VirtualNetwork | Allow | ruch Web → App → DB |
+| wszystkie | AllowInternetOutBound (domyślna) | Internet | Allow | aktualizacje pakietów (apt, npm) i odnawianie certyfikatu Let's Encrypt |
+| wszystkie | DenyAllOutBound (domyślna) | * | Deny | pozostały ruch |
+
+### Realizacja wymagań E1–E5
+
+| Wymaganie | Realizacja |
+|---|---|
+| E1 Izolacja bazy danych | `vm-db` nie ma publicznego IP, port 5432 dostępny wyłącznie z 10.0.2.0/24. PostgreSQL (`pg_hba.conf`) przyjmuje użytkownika `sqladmin` tylko z podsieci App. |
+| E2 Hardening serwera aplikacji | `vm-app` nie ma publicznego IP, port 3000 dostępny tylko z podsieci Web. Port 22 i RDP nie są otwarte na żadnej maszynie; zarządzanie odbywa się przez Azure Run Command. |
+| E3 HTTPS / TLS | Caddy na `vm-web` automatycznie uzyskuje i odnawia certyfikat Let's Encrypt dla domeny `*.cloudapp.azure.com`. |
+| E4 Przekierowanie HTTP → HTTPS | Caddy odpowiada na porcie 80 kodem `308 Permanent Redirect` na `https://`. |
+| E5 Dokumentacja | Ta sekcja README. |
+
+### Testy weryfikacyjne
+
+| Test | Polecenie | Wynik |
+|---|---|---|
+| 1. Brak dostępu do bazy z Internetu | `bash -c "</dev/tcp/20.91.245.147/5432"` (baza nie ma własnego publicznego IP) | Connection timed out |
+| 1b. Brak SSH z Internetu | `bash -c "</dev/tcp/20.91.245.147/22"` | Connection timed out |
+| 2. Szyfrowanie HTTPS | `curl -I http://salago-26465.swedencentral.cloudapp.azure.com` | `308` → `https://…`, certyfikat Let's Encrypt, `SSL certificate verify ok` |
+| 3. Ruch wewnętrzny | `POST /api/sale` przez aplikację | rekord zapisany w PostgreSQL na `vm-db` (`/api/health` → `{"status":"ok","db":"postgres"}`) |
