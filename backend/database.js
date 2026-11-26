@@ -1,61 +1,37 @@
+// Połączenie z bazą PostgreSQL w prywatnej podsieci (warstwa Data).
+const { Pool } = require('pg');
+const saleStartowe = require('../frontend/src/data/sale.json');
 
-const Database = require('better-sqlite3');
-const fs = require('fs');
-const path = require('path');
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 5432),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
+});
 
-// Lokalizacja pliku bazy danych.
-const sciezkaBazy = path.join(__dirname, 'salago.db');
-
-// Sprawdzamy, czy baza już istnieje.
-const nowaBaza = !fs.existsSync(sciezkaBazy);
-
-// Otwieramy lub tworzymy bazę SQLite.
-const db = new Database(sciezkaBazy);
-
-// Tworzymy tabelę sal.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS sale (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nazwa TEXT NOT NULL,
-    budynek TEXT NOT NULL,
-    pietro INTEGER NOT NULL,
-    pojemnosc INTEGER NOT NULL,
-    wyposazenie TEXT NOT NULL,
-    dostepna INTEGER NOT NULL
-  )
-`);
-
-// Przy pierwszym uruchomieniu dodajemy 8 sal testowych.
-if (nowaBaza) {
-  const saleStartowe = require('../frontend/src/data/sale.json');
-
-  const dodaj = db.prepare(`
-    INSERT INTO sale (
-      id, nazwa, budynek, pietro,
-      pojemnosc, wyposazenie, dostepna
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const zapiszSale = db.transaction((lista) => {
-    for (const sala of lista) {
-      dodaj.run(
-        sala.id,
-        sala.nazwa,
-        sala.budynek,
-        sala.pietro,
-        sala.pojemnosc,
-        JSON.stringify(sala.wyposazenie),
-        sala.dostepna ? 1 : 0
+async function init() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sale (
+      id SERIAL PRIMARY KEY,
+      nazwa TEXT NOT NULL,
+      budynek TEXT NOT NULL,
+      pietro INTEGER NOT NULL,
+      pojemnosc INTEGER NOT NULL,
+      wyposazenie TEXT NOT NULL,
+      dostepna BOOLEAN NOT NULL
+    )`);
+  const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM sale');
+  if (rows[0].n === 0) {
+    for (const s of saleStartowe) {
+      await pool.query(
+        'INSERT INTO sale (nazwa, budynek, pietro, pojemnosc, wyposazenie, dostepna) VALUES ($1,$2,$3,$4,$5,$6)',
+        [s.nazwa, s.budynek, s.pietro, s.pojemnosc, JSON.stringify(s.wyposazenie), s.dostepna]
       );
     }
-  });
-
-  zapiszSale(saleStartowe);
-
-  console.log('Dodano 8 początkowych sal.');
+    console.log('Dodano początkowe sale.');
+  }
+  console.log('Baza danych PostgreSQL SalaGo jest gotowa.');
 }
 
-console.log('Baza danych SalaGo jest gotowa.');
-
-module.exports = db;
+module.exports = { pool, init };
